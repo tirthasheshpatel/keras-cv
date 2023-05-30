@@ -19,9 +19,15 @@ Reference:
 
 import copy
 
-from tensorflow import keras
-from tensorflow.keras import backend
-from tensorflow.keras import layers
+from keras_cv import use_keras_core
+from keras_cv import register_keras_serializable
+
+if use_keras_core():
+    from keras_core import backend
+    from keras_core import layers
+else:
+    from tensorflow.keras import backend
+    from tensorflow.keras import layers
 
 from keras_cv.models import utils
 from keras_cv.models.backbones.backbone import Backbone
@@ -255,7 +261,7 @@ def apply_stack(
     return x
 
 
-@keras.utils.register_keras_serializable(package="keras_cv.models")
+@register_keras_serializable(package="keras_cv.models")
 class ResNetV2Backbone(Backbone):
     """Instantiates the ResNetV2 architecture.
 
@@ -356,7 +362,9 @@ class ResNetV2Backbone(Backbone):
                 first_shortcut=(block_type == "block" or stack_index > 0),
                 name=f"v2_stack_{stack_index}",
             )
-            pyramid_level_inputs[stack_index + 2] = x.node.layer.name
+            pyramid_level_inputs[stack_index + 2] = utils.get_tensor_input_name(
+                x
+            )
 
         x = layers.BatchNormalization(
             axis=BN_AXIS, epsilon=BN_EPSILON, name="post_bn"
