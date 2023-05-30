@@ -15,8 +15,9 @@
 
 import os
 
-from keras_cv import use_keras_core
 from tensorflow import keras
+
+from keras_cv import use_keras_core
 
 if use_keras_core():
     import keras_core
@@ -26,10 +27,9 @@ else:
     from tensorflow.keras import layers
     from tensorflow.keras.utils import get_registered_object
 
+from keras_cv import register_keras_serializable
 from keras_cv.utils.python_utils import classproperty
 from keras_cv.utils.python_utils import format_docstring
-from keras_cv import register_keras_serializable
-
 
 base_class = keras_core.Model if use_keras_core() else keras.Model
 
@@ -138,9 +138,7 @@ class Task(base_class):
         metadata = cls.presets[preset]
         # Check if preset is backbone-only model
         if preset in cls.backbone_presets:
-            backbone_cls = get_registered_object(
-                metadata["class_name"]
-            )
+            backbone_cls = get_registered_object(metadata["class_name"])
             backbone = backbone_cls.from_preset(preset, load_weights)
             return cls(backbone, **kwargs)
 

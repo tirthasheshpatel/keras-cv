@@ -16,8 +16,8 @@
 
 import os
 
-import pytest
 import numpy as np
+import pytest
 import tensorflow as tf
 from absl.testing import parameterized
 from tensorflow import keras

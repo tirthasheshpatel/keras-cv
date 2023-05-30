@@ -19,8 +19,8 @@ Reference:
 
 import copy
 
-from keras_cv import use_keras_core
 from keras_cv import register_keras_serializable
+from keras_cv import use_keras_core
 
 if use_keras_core():
     from keras_core import backend

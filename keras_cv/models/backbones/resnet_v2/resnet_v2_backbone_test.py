@@ -14,11 +14,12 @@
 
 import os
 
-import pytest
 import numpy as np
+import pytest
 import tensorflow as tf
 from absl.testing import parameterized
 
+from keras_cv import use_keras_core
 from keras_cv.models.backbones.resnet_v2.resnet_v2_backbone import (
     ResNet50V2Backbone,
 )
@@ -26,7 +27,6 @@ from keras_cv.models.backbones.resnet_v2.resnet_v2_backbone import (
     ResNetV2Backbone,
 )
 from keras_cv.utils.train import get_feature_extractor
-from keras_cv import use_keras_core
 
 if use_keras_core():
     from keras_core import Input
