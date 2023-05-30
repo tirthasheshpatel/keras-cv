@@ -30,10 +30,10 @@ from keras_cv.utils.train import get_feature_extractor
 
 if use_keras_core():
     from keras_core import Input
-    from keras_core import saving
+    from keras_core.saving import load_model
 else:
     from tensorflow.keras import Input
-    from tensorflow.keras import saving
+    from tensorflow.keras.models import load_model
 
 
 class ResNetV2BackboneTest(tf.test.TestCase, parameterized.TestCase):
@@ -77,7 +77,7 @@ class ResNetV2BackboneTest(tf.test.TestCase, parameterized.TestCase):
         model_output = model(self.input_batch)
         save_path = os.path.join(self.get_temp_dir(), filename)
         model.save(save_path, save_format=save_format)
-        restored_model = saving.load_model(save_path)
+        restored_model = load_model(save_path)
 
         # Check we got the real object back.
         self.assertIsInstance(restored_model, ResNetV2Backbone)
@@ -96,7 +96,7 @@ class ResNetV2BackboneTest(tf.test.TestCase, parameterized.TestCase):
         model_output = model(self.input_batch)
         save_path = os.path.join(self.get_temp_dir(), filename)
         model.save(save_path, save_format=save_format)
-        restored_model = saving.load_model(save_path)
+        restored_model = load_model(save_path)
 
         # Check we got the real object back.
         # Note that these aliases serialized as the base class
