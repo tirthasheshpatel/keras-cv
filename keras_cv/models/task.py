@@ -15,14 +15,27 @@
 
 import os
 
+from keras_cv import use_keras_core
 from tensorflow import keras
+
+if use_keras_core():
+    import keras_core
+    from keras_core import layers
+    from keras_core.saving import get_registered_object
+else:
+    from tensorflow.keras import layers
+    from tensorflow.keras.utils import get_registered_object
 
 from keras_cv.utils.python_utils import classproperty
 from keras_cv.utils.python_utils import format_docstring
+from keras_cv import register_keras_serializable
 
 
-@keras.utils.register_keras_serializable(package="keras_cv")
-class Task(keras.Model):
+base_class = keras_core.Model if use_keras_core() else keras.Model
+
+
+@register_keras_serializable(package="keras_cv")
+class Task(base_class):
     """Base class for Task models."""
 
     def __init__(self, *args, **kwargs):
@@ -51,7 +64,7 @@ class Task(keras.Model):
         # The default `from_config()` for functional models will return a
         # vanilla `keras.Model`. We override it to get a subclass instance back.
         if "backbone" in config and isinstance(config["backbone"], dict):
-            config["backbone"] = keras.layers.deserialize(config["backbone"])
+            config["backbone"] = layers.deserialize(config["backbone"])
         return cls(**config)
 
     @classproperty
@@ -125,7 +138,7 @@ class Task(keras.Model):
         metadata = cls.presets[preset]
         # Check if preset is backbone-only model
         if preset in cls.backbone_presets:
-            backbone_cls = keras.utils.get_registered_object(
+            backbone_cls = get_registered_object(
                 metadata["class_name"]
             )
             backbone = backbone_cls.from_preset(preset, load_weights)
@@ -142,6 +155,7 @@ class Task(keras.Model):
         if metadata["weights_url"].endswith(".weights.h5"):
             local_weights_path = "model.weights.h5"
 
+        # TODO: implement ``get_file`` in ``keras_core``
         weights = keras.utils.get_file(
             local_weights_path,
             metadata["weights_url"],
