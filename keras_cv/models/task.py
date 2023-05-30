@@ -23,9 +23,11 @@ if use_keras_core():
     import keras_core
     from keras_core import layers
     from keras_core.saving import get_registered_object
+    from keras_core.utils.file_utils import get_file
 else:
     from tensorflow.keras import layers
     from tensorflow.keras.utils import get_registered_object
+    from tensorflow.keras.utils import get_file
 
 from keras_cv import register_keras_serializable
 from keras_cv.utils.python_utils import classproperty
@@ -154,7 +156,7 @@ class Task(base_class):
             local_weights_path = "model.weights.h5"
 
         # TODO: implement ``get_file`` in ``keras_core``
-        weights = keras.utils.get_file(
+        weights = get_file(
             local_weights_path,
             metadata["weights_url"],
             cache_subdir=os.path.join("models", preset),
