@@ -15,8 +15,13 @@
 
 import copy
 
-from keras import layers
-from tensorflow import keras
+from keras_cv import use_keras_core
+from keras_cv import register_keras_serializable
+
+if use_keras_core():
+    from keras_core import layers
+else:
+    from keras import layers
 
 from keras_cv.models.backbones.backbone_presets import backbone_presets
 from keras_cv.models.backbones.backbone_presets import (
@@ -29,7 +34,7 @@ from keras_cv.models.task import Task
 from keras_cv.utils.python_utils import classproperty
 
 
-@keras.utils.register_keras_serializable(package="keras_cv.models")
+@register_keras_serializable(package="keras_cv.models")
 class ImageClassifier(Task):
     """Image classifier with pooling and dense layer prediction head.
 
@@ -114,7 +119,7 @@ class ImageClassifier(Task):
         config = super().get_config()
         config.update(
             {
-                "backbone": keras.layers.serialize(self.backbone),
+                "backbone": layers.serialize(self.backbone),
                 "num_classes": self.num_classes,
                 "pooling": self.pooling,
                 "activation": self.activation,
