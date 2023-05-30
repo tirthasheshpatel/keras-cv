@@ -17,12 +17,27 @@ import os
 
 from tensorflow import keras
 
+from keras_cv import use_keras_core
+
+if use_keras_core():
+    import keras_core
+    from keras_core import layers
+    from keras_core.saving import get_registered_object
+    from keras_core.utils.file_utils import get_file
+else:
+    from tensorflow.keras import layers
+    from tensorflow.keras.utils import get_registered_object
+    from tensorflow.keras.utils import get_file
+
+from keras_cv import register_keras_serializable
 from keras_cv.utils.python_utils import classproperty
 from keras_cv.utils.python_utils import format_docstring
 
+base_class = keras_core.Model if use_keras_core() else keras.Model
 
-@keras.utils.register_keras_serializable(package="keras_cv")
-class Task(keras.Model):
+
+@register_keras_serializable(package="keras_cv")
+class Task(base_class):
     """Base class for Task models."""
 
     def __init__(self, *args, **kwargs):
@@ -51,7 +66,7 @@ class Task(keras.Model):
         # The default `from_config()` for functional models will return a
         # vanilla `keras.Model`. We override it to get a subclass instance back.
         if "backbone" in config and isinstance(config["backbone"], dict):
-            config["backbone"] = keras.layers.deserialize(config["backbone"])
+            config["backbone"] = layers.deserialize(config["backbone"])
         return cls(**config)
 
     @classproperty
@@ -125,9 +140,7 @@ class Task(keras.Model):
         metadata = cls.presets[preset]
         # Check if preset is backbone-only model
         if preset in cls.backbone_presets:
-            backbone_cls = keras.utils.get_registered_object(
-                metadata["class_name"]
-            )
+            backbone_cls = get_registered_object(metadata["class_name"])
             backbone = backbone_cls.from_preset(preset, load_weights)
             return cls(backbone, **kwargs)
 
@@ -142,7 +155,8 @@ class Task(keras.Model):
         if metadata["weights_url"].endswith(".weights.h5"):
             local_weights_path = "model.weights.h5"
 
-        weights = keras.utils.get_file(
+        # TODO: implement ``get_file`` in ``keras_core``
+        weights = get_file(
             local_weights_path,
             metadata["weights_url"],
             cache_subdir=os.path.join("models", preset),
