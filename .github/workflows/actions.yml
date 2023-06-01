@@ -34,8 +34,7 @@ jobs:
       run: |
         pip install tensorflow==2.12.0
         pip install -e ".[tests]" --progress-bar off --upgrade
-        git clone https://ianstenbit:${{ secrets.PAT }}@github.com/keras-team/keras-core.git
-        pip install keras-core/
+        pip install git+https://tirthasheshpatel:${{ secrets.PAT }}@github.com/keras-team/keras-core.git
         pip install "jax[cpu]"
     # - name: Build custom ops for tests
     #   run: |
@@ -71,8 +70,7 @@ jobs:
     - name: Install dependencies
       run: |
         pip install tensorflow==2.12.0
-        git clone https://ianstenbit:${{ secrets.PAT }}@github.com/keras-team/keras-core.git
-        pip install keras-core/
+        pip install git+https://tirthasheshpatel:${{ secrets.PAT }}@github.com/keras-team/keras-core.git
         pip install -e ".[tests]" --progress-bar off --upgrade
         pip install "jax[cpu]"
     - name: Test with pytest
@@ -84,7 +82,7 @@ jobs:
         pytest keras_cv/models/backbones/resnet_v1 \
                keras_cv/models/backbones/resnet_v2 \
                keras_cv/models/classification/image_classifier_test.py \
-               --durations 0
+               --durations 0 --run_large
   format:
     name: Check the code format
     runs-on: ubuntu-latest
