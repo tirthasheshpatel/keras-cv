@@ -58,10 +58,10 @@ class MultiHeadAttentionWithDownsampling(keras.layers.Layer):
         # Upsample
         self.out_proj = keras.layers.Dense(self.key_dim * self.num_heads)
 
-        self.query_proj.build([self.num_heads * self.key_dim])
-        self.key_proj.build([self.num_heads * self.key_dim])
-        self.value_proj.build([self.num_heads * self.key_dim])
-        self.out_proj.build([self.internal_dims * self.num_heads])
+        self.query_proj.build([None, None, self.num_heads * self.key_dim])
+        self.key_proj.build([None, None, self.num_heads * self.key_dim])
+        self.value_proj.build([None, None, self.num_heads * self.key_dim])
+        self.out_proj.build([None, None, self.internal_dims * self.num_heads])
 
         self.built = True
 
@@ -160,7 +160,7 @@ class TwoWayMultiHeadAttention(keras.layers.Layer):
             mlp_dim,
             key_dim * num_heads,
             num_layers=2,
-            activation="gelu",
+            activation=activation,
         )
 
         self.layer_norm3 = keras.layers.LayerNormalization(epsilon=1e-5)
