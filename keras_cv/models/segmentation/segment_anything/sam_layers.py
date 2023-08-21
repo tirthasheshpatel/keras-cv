@@ -26,37 +26,24 @@ class MLP(keras.layers.Layer):
         hidden_dim (int): The number of units in the hidden layers.
         output_dim (int): The number of units in the output layer.
         num_layers (int): The total number of dense layers to use.
-        hidden_activation (bool): Activation to use in the hidden layers.
+        activation (str): Activation to use in the hidden layers.
             Default is `"relu"`.
-        output_activation (bool): Activation to use in the output layer.
-            Default is `None`.
     """
 
     def __init__(
-        self,
-        hidden_dim,
-        output_dim,
-        num_layers,
-        hidden_activation="relu",
-        output_activation=None,
-        **kwargs
+        self, hidden_dim, output_dim, num_layers, activation="relu", **kwargs
     ):
         super().__init__(**kwargs)
         self.hidden_dim = hidden_dim
         self.output_dim = output_dim
         self.num_layers = num_layers
-        self.hidden_activation = hidden_activation
+        self.activation = activation
         h = [hidden_dim] * (num_layers - 1)
         self.dense_net = []
         for hidden_dim in h:
             self.dense_net.append(keras.layers.Dense(hidden_dim))
-            if hidden_activation:
-                self.dense_net.append(
-                    keras.layers.Activation(hidden_activation)
-                )
+            self.dense_net.append(keras.layers.Activation(activation))
         self.dense_net.append(keras.layers.Dense(output_dim))
-        if output_activation:
-            self.dense_net.append(keras.layers.Activation(output_activation))
         self.dense_net = SerializableSequential(self.dense_net)
 
     def build(self, input_shape):
@@ -73,7 +60,7 @@ class MLP(keras.layers.Layer):
                 "hidden_dim": self.hidden_dim,
                 "output_dim": self.output_dim,
                 "num_layers": self.num_layers,
-                "hidden_activation": self.hidden_activation,
+                "activation": self.activation,
             }
         )
         return config

@@ -160,8 +160,7 @@ class TwoWayMultiHeadAttention(keras.layers.Layer):
             mlp_dim,
             key_dim * num_heads,
             num_layers=2,
-            hidden_activation=None,
-            output_activation="gelu",
+            activation="gelu",
         )
 
         self.layer_norm3 = keras.layers.LayerNormalization(epsilon=1e-5)

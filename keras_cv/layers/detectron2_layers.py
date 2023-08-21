@@ -205,8 +205,7 @@ class WindowedTransformerEncoder(keras.layers.Layer):
             mlp_dim,
             project_dim,
             num_layers=2,
-            hidden_activation=None,
-            output_activation="gelu",
+            activation="gelu",
         )
 
     def build(self, input_shape=None):
