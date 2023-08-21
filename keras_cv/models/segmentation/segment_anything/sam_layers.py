@@ -14,44 +14,66 @@
 
 from keras_cv.api_export import keras_cv_export
 from keras_cv.backend import keras
+from keras_cv.layers.serializable_sequential import SerializableSequential
 
 
-@keras_cv_export("keras_cv.layers.MLPBlock")
-class MLPBlock(keras.layers.Layer):
-    def __init__(self, embedding_dim, mlp_dim, activation="gelu", **kwargs):
-        """A MLP block with architecture
-        `embedding_dim -> mlp_dim -> embedding_dim`.
+@keras_cv_export("keras_cv.layers.MLP")
+class MLP(keras.layers.Layer):
+    """A MLP block with architecture
+    `input_dim -> [hidden_dim] * (num_layers - 1) -> output_dim`.
 
-        Args:
-            embedding_dim (int): The number of units in the input and the
-                output layer.
-            mlp_dim (int): The number of units in the hidden layer.
-            activation (str, optional): The activation of the output.
-                Defaults to "gelu".
-        """
+    Args:
+        hidden_dim (int): The number of units in the hidden layers.
+        output_dim (int): The number of units in the output layer.
+        num_layers (int): The total number of dense layers to use.
+        hidden_activation (bool): Activation to use in the hidden layers.
+            Default is `"relu"`.
+        output_activation (bool): Activation to use in the output layer.
+            Default is `None`.
+    """
+
+    def __init__(
+        self,
+        hidden_dim,
+        output_dim,
+        num_layers,
+        hidden_activation="relu",
+        output_activation=None,
+        **kwargs
+    ):
         super().__init__(**kwargs)
-        self.dense_layer1 = keras.layers.Dense(mlp_dim)
-        self.dense_layer2 = keras.layers.Dense(embedding_dim)
-        self.activation_layer = keras.layers.Activation(activation)
+        self.hidden_dim = hidden_dim
+        self.output_dim = output_dim
+        self.num_layers = num_layers
+        self.hidden_activation = hidden_activation
+        h = [hidden_dim] * (num_layers - 1)
+        self.dense_net = []
+        for hidden_dim in h:
+            self.dense_net.append(keras.layers.Dense(hidden_dim))
+            if hidden_activation:
+                self.dense_net.append(
+                    keras.layers.Activation(hidden_activation)
+                )
+        self.dense_net.append(keras.layers.Dense(output_dim))
+        if output_activation:
+            self.dense_net.append(keras.layers.Activation(output_activation))
+        self.dense_net = SerializableSequential(self.dense_net)
 
-        self.embedding_dim = embedding_dim
-        self.mlp_dim = mlp_dim
-        self.activation = activation
-
-        self.dense_layer1.build([self.embedding_dim])
-        self.dense_layer2.build([self.mlp_dim])
-
+    def build(self, input_shape):
+        self.dense_net.build(input_shape)
         self.built = True
 
     def call(self, x):
-        return self.dense_layer2(self.activation_layer(self.dense_layer1(x)))
+        return self.dense_net(x)
 
     def get_config(self):
         config = super().get_config()
         config.update(
             {
-                "embedding_dim": self.embedding_dim,
-                "mlp_dim": self.mlp_dim,
-                "activation": self.activation,
+                "hidden_dim": self.hidden_dim,
+                "output_dim": self.output_dim,
+                "num_layers": self.num_layers,
+                "hidden_activation": self.hidden_activation,
             }
         )
+        return config
