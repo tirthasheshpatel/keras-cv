@@ -44,13 +44,13 @@ from keras_cv.models.backbones.densenet.densenet_backbone import (
     DenseNetBackbone,
 )
 from keras_cv.models.backbones.detectron2.detectron2_aliases import (
-    SAMViTDetBBackbone,
+    ViTDetBBackbone,
 )
 from keras_cv.models.backbones.detectron2.detectron2_aliases import (
-    SAMViTDetHBackbone,
+    ViTDetHBackbone,
 )
 from keras_cv.models.backbones.detectron2.detectron2_aliases import (
-    SAMViTDetLBackbone,
+    ViTDetLBackbone,
 )
 from keras_cv.models.backbones.detectron2.detectron2_backbone import (
     ViTDetBackbone,
