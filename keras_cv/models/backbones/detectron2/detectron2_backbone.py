@@ -85,7 +85,9 @@ class ViTDetBackbone(Backbone):
         layer_norm_epsilon=1e-6,
         **kwargs
     ):
-        img_input = utils.parse_model_inputs(input_shape, input_tensor)
+        img_input = utils.parse_model_inputs(
+            input_shape, input_tensor, name="images"
+        )
 
         # Check that the input image is well specified.
         if img_input.shape[-3] is None or img_input.shape[-2] is None:

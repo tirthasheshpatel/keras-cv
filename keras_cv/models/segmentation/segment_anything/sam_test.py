@@ -12,11 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-
 import numpy as np
 
-from keras_cv.backend import keras
 from keras_cv.backend import ops
 from keras_cv.models.segmentation.segment_anything.sam_layers import (
     TwoWayMultiHeadAttention,
@@ -34,7 +31,7 @@ from keras_cv.tests.test_case import TestCase
 
 
 class SAMTest(TestCase):
-    def get_points_labels_box_mask(self, B):
+    def get_prompt_encoder_inputs(self, B):
         prompt_encoder = SAMPromptEncoder(
             embed_dim=256,
             image_embedding_size=(64, 64),
@@ -46,25 +43,23 @@ class SAMTest(TestCase):
             np.random.randint(0, 1023, (B, 10, 2)), dtype="float32"
         )
         labels = ops.convert_to_tensor(
-            1 * (np.random.rand(B, 10) > 0.5), dtype="int64"
+            1 * (np.random.rand(B, 10) > 0.5), dtype="int32"
         )
         box = ops.array(
             [
-                [
-                    [[10, 10], [500, 500]],
-                    [[20, 20], [500, 500]],
-                    [[30, 30], [500, 500]],
-                    [[40, 40], [500, 500]],
-                    [[50, 50], [500, 500]],
-                    [[60, 60], [500, 500]],
-                    [[70, 70], [500, 500]],
-                ]
+                [[10, 10], [500, 500]],
+                [[20, 20], [500, 500]],
+                [[30, 30], [500, 500]],
+                [[40, 40], [500, 500]],
+                [[50, 50], [500, 500]],
+                [[60, 60], [500, 500]],
+                [[70, 70], [500, 500]],
             ],
             dtype="float32",
         )
-        box = box[:, :B, ...]
+        box = box[:B, None, ...]
         input_mask = ops.convert_to_tensor(
-            1.0 * (np.random.rand(B, 256, 256, 1) > 0.5), dtype="float32"
+            1.0 * (np.random.rand(B, 1, 256, 256, 1) > 0.5), dtype="float32"
         )
 
         return prompt_encoder, points, labels, box, input_mask
@@ -76,10 +71,15 @@ class SAMTest(TestCase):
             labels,
             box,
             input_mask,
-        ) = self.get_points_labels_box_mask(7)
+        ) = self.get_prompt_encoder_inputs(7)
 
-        sparse_embeddings, dense_embeddings = prompt_encoder(
-            points=points, labels=labels, box=box, mask=input_mask
+        outputs = prompt_encoder(
+            dict(points=points, labels=labels, box=box, mask=input_mask)
+        )
+        sparse_embeddings, dense_embeddings, dense_positional_embeddings = (
+            outputs["sparse_embeddings"],
+            outputs["dense_embeddings"],
+            outputs["dense_positional_embeddings"],
         )
 
         num_parameters = sum(
@@ -88,31 +88,14 @@ class SAMTest(TestCase):
 
         sparse_embeddings = ops.convert_to_numpy(sparse_embeddings)
         dense_embeddings = ops.convert_to_numpy(dense_embeddings)
+        dense_positional_embeddings = ops.convert_to_numpy(
+            dense_positional_embeddings
+        )
 
         self.assertEqual(sparse_embeddings.shape, (7, 12, 256))
         self.assertEqual(dense_embeddings.shape, (7, 64, 64, 256))
+        self.assertEqual(dense_positional_embeddings.shape, (1, 64, 64, 256))
         self.assertEqual(num_parameters, 6_220)
-
-        # saving test
-        path = os.path.join(self.get_temp_dir(), "sam_tf_prompt_encoder.keras")
-        prompt_encoder.save(path)
-        loaded_model = keras.saving.load_model(path)
-        sparse_embeddings_loaded, dense_embeddings_loaded = loaded_model(
-            points=points, labels=labels, box=box, mask=input_mask
-        )
-        sparse_embeddings_loaded = ops.convert_to_numpy(
-            sparse_embeddings_loaded
-        )
-        dense_embeddings_loaded = ops.convert_to_numpy(dense_embeddings_loaded)
-        pegm_ref = ops.convert_to_numpy(
-            prompt_encoder.positional_embedding_layer.positional_encoding_gaussian_matrix  # noqa: E501
-        )
-        pegm_loaded = ops.convert_to_numpy(
-            loaded_model.positional_embedding_layer.positional_encoding_gaussian_matrix  # noqa: E501
-        )
-        self.assertAllClose(pegm_ref, pegm_loaded)
-        self.assertAllClose(sparse_embeddings, sparse_embeddings_loaded)
-        self.assertAllClose(dense_embeddings, dense_embeddings_loaded)
 
     def test_two_way_multi_head_attention(self):
         (
@@ -121,12 +104,13 @@ class SAMTest(TestCase):
             labels,
             box,
             input_mask,
-        ) = self.get_points_labels_box_mask(1)
+        ) = self.get_prompt_encoder_inputs(1)
         image_embeddings = np.random.randn(1, 64, 64, 256).astype(np.float32)
 
-        sparse_embeddings, _ = prompt_encoder(
-            points=points, labels=labels, box=box, mask=input_mask
+        prompt_encoder_outputs = prompt_encoder(
+            dict(points=points, labels=labels, box=box, mask=input_mask)
         )
+        sparse_embeddings = prompt_encoder_outputs["sparse_embeddings"]
 
         two_way_attention = TwoWayMultiHeadAttention(
             num_heads=8,
@@ -139,7 +123,8 @@ class SAMTest(TestCase):
             keys=ops.reshape(image_embeddings, (1, 64 * 64, 256)),
             query_pe=sparse_embeddings,
             key_pe=ops.reshape(
-                prompt_encoder.get_dense_pe(), (1, 64 * 64, 256)
+                prompt_encoder_outputs["dense_positional_embeddings"],
+                (1, 64 * 64, 256),
             ),
         )
 
@@ -155,17 +140,18 @@ class SAMTest(TestCase):
             labels,
             box,
             input_mask,
-        ) = self.get_points_labels_box_mask(1)
-        sparse_embeddings, _ = prompt_encoder(
-            points=points, labels=labels, box=box, mask=input_mask
+        ) = self.get_prompt_encoder_inputs(1)
+        prompt_encoder_outputs = prompt_encoder(
+            dict(points=points, labels=labels, box=box, mask=input_mask)
         )
+        sparse_embeddings = prompt_encoder_outputs["sparse_embeddings"]
         image_embeddings = np.random.randn(1, 64, 64, 256)
         two_way_transformer = TwoWayTransformer(
             depth=2, embedding_dim=256, num_heads=8, mlp_dim=2048
         )
         queries, keys = two_way_transformer(
             image_embedding=image_embeddings,
-            image_pe=prompt_encoder.get_dense_pe(),
+            image_pe=prompt_encoder_outputs["dense_positional_embeddings"],
             point_embedding=sparse_embeddings,
         )
         queries, keys = map(ops.convert_to_numpy, [queries, keys])
@@ -179,9 +165,14 @@ class SAMTest(TestCase):
             labels,
             box,
             input_mask,
-        ) = self.get_points_labels_box_mask(1)
-        sparse_embeddings, dense_embeddings = prompt_encoder(
-            points=points, labels=labels, box=box, mask=input_mask
+        ) = self.get_prompt_encoder_inputs(1)
+        prompt_encoder_outputs = prompt_encoder(
+            dict(points=points, labels=labels, box=box, mask=input_mask)
+        )
+        sparse_embeddings, dense_embeddings, dense_positional_embeddings = (
+            prompt_encoder_outputs["sparse_embeddings"],
+            prompt_encoder_outputs["dense_embeddings"],
+            prompt_encoder_outputs["dense_positional_embeddings"],
         )
         image_embeddings = np.random.randn(1, 64, 64, 256)
         mask_decoder = SAMMaskDecoder(
@@ -193,33 +184,19 @@ class SAMTest(TestCase):
             iou_head_depth=3,
             iou_head_hidden_dim=256,
         )
-        masks, iou_pred = mask_decoder(
-            image_embeddings=image_embeddings,
-            image_pe=prompt_encoder.get_dense_pe(),
-            sparse_prompt_embeddings=sparse_embeddings[:1, ...],
-            dense_prompt_embeddings=dense_embeddings[:1, ...],
-            multimask_output=True,
+        outputs = mask_decoder(
+            dict(
+                image_embeddings=image_embeddings,
+                image_pe=dense_positional_embeddings,
+                sparse_prompt_embeddings=sparse_embeddings,
+                dense_prompt_embeddings=dense_embeddings,
+            )
         )
+        masks, iou_pred = outputs["masks"], outputs["iou_pred"]
         num_parameters = sum(
             np.prod(tuple(x.shape)) for x in mask_decoder.trainable_variables
         )
         masks, iou_pred = map(ops.convert_to_numpy, [masks, iou_pred])
-        self.assertEqual(masks.shape, (1, 3, 256, 256))
-        self.assertEqual(iou_pred.shape, (1, 3))
+        self.assertEqual(masks.shape, (1, 4, 256, 256))
+        self.assertEqual(iou_pred.shape, (1, 4))
         self.assertEqual(num_parameters, 4_058_340)
-
-        # saving test
-        path = os.path.join(self.get_temp_dir(), "sam_tf_mask_decoder.keras")
-        mask_decoder.save(path)
-        loaded_model = keras.saving.load_model(path)
-        masks_loaded, iou_pred_loaded = loaded_model(
-            image_embeddings=image_embeddings,
-            image_pe=prompt_encoder.get_dense_pe(),
-            sparse_prompt_embeddings=sparse_embeddings[:1, ...],
-            dense_prompt_embeddings=dense_embeddings[:1, ...],
-            multimask_output=True,
-        )
-        masks_loaded = ops.convert_to_numpy(masks_loaded)
-        iou_pred_loaded = ops.convert_to_numpy(iou_pred_loaded)
-        self.assertAllClose(masks, masks_loaded)
-        self.assertAllClose(iou_pred, iou_pred_loaded)

@@ -101,14 +101,20 @@ class TwoWayTransformer(keras.layers.Layer):
         )
         self.final_layer_norm = keras.layers.LayerNormalization(epsilon=1e-5)
 
+    def build(self, input_shape=None):
+        for layer in self.layers:
+            layer.build()
+        self.final_attention_token_to_image.build()
         self.final_layer_norm.build([None, None, self.embedding_dim])
-
         self.built = True
 
     def call(self, image_embedding, image_pe, point_embedding):
-        B, H, W, C = image_embedding.shape
+        shape = ops.shape(image_embedding)
+        B, H, W, C = shape[0], shape[1], shape[2], shape[3]
         image_embedding = ops.reshape(image_embedding, (B, H * W, C))
-        B, H, W, C = image_pe.shape
+
+        shape = ops.shape(image_pe)
+        B, H, W, C = shape[0], shape[1], shape[2], shape[3]
         image_pe = ops.reshape(image_pe, (B, H * W, C))
         queries = point_embedding
         keys = image_embedding

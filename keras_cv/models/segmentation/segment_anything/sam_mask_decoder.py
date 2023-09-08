@@ -19,8 +19,8 @@ from keras_cv.layers.detectron2_layers import MLP
 from keras_cv.layers.serializable_sequential import SerializableSequential
 
 
-@keras_cv_export("keras_cv.models.SAMMaskDecoder")
-class SAMMaskDecoder(keras.models.Model):
+@keras_cv_export("keras_cv.layers.SAMMaskDecoder")
+class SAMMaskDecoder(keras.layers.Layer):
     """Mask decoder for the Segment Anything Model (SAM).
 
     This lightweight module efficiently maps the image embedding and a set of
@@ -105,53 +105,51 @@ class SAMMaskDecoder(keras.models.Model):
             iou_head_hidden_dim, self.num_mask_tokens, iou_head_depth
         )
 
-        self.iou_token.build(None)
-        self.mask_tokens.build(None)
-
+    def build(self, input_shape=None):
+        self.transformer.build()
+        self.iou_token.build([None])
+        self.mask_tokens.build([None])
         self.output_upscaling.build([None, None, None, self.transformer_dim])
-
         for mlp in self.output_hypernetworks_mlps:
             mlp.build([None, self.transformer_dim])
-
         self.iou_prediction_head.build([None, self.transformer_dim])
-
         self.built = True
 
-    def call(
-        self,
-        image_embeddings,
-        image_pe,
-        sparse_prompt_embeddings,
-        dense_prompt_embeddings,
-        multimask_output,
-    ):
-        masks, iou_pred = self.predict_masks(
+    def call(self, inputs):
+        image_embeddings = inputs["image_embeddings"]
+        image_pe = inputs["image_pe"]
+        sparse_prompt_embeddings = inputs["sparse_prompt_embeddings"]
+        dense_prompt_embeddings = inputs["dense_prompt_embeddings"]
+
+        masks, iou_pred = self._predict_masks(
             image_embeddings=image_embeddings,
             image_pe=image_pe,
             sparse_prompt_embeddings=sparse_prompt_embeddings,
             dense_prompt_embeddings=dense_prompt_embeddings,
         )
 
-        if multimask_output:
-            return masks[:, 1:, :, :], iou_pred[:, 1:]
-        return masks[:, :1, :, :], iou_pred[:, :1]
+        return {"masks": masks, "iou_pred": iou_pred}
 
-    def predict_masks(
+    def _predict_masks(
         self,
         image_embeddings,
         image_pe,
         sparse_prompt_embeddings,
         dense_prompt_embeddings,
     ):
+        indices_iou = ops.arange(1, dtype="int32")
+        indices_mask = ops.arange(self.num_mask_tokens, dtype="int32")
+
         output_tokens = ops.concatenate(
-            [self.iou_token.weights[0], self.mask_tokens.weights[0]], axis=0
+            [self.iou_token(indices_iou), self.mask_tokens(indices_mask)],
+            axis=0,
         )
         output_tokens = ops.broadcast_to(
             output_tokens[None, ...],
             shape=(
-                sparse_prompt_embeddings.shape[0],
-                output_tokens.shape[0],
-                output_tokens.shape[1],
+                ops.shape(sparse_prompt_embeddings)[0],
+                ops.shape(output_tokens)[0],
+                ops.shape(output_tokens)[1],
             ),
         )
         tokens = ops.concatenate(
@@ -161,23 +159,24 @@ class SAMMaskDecoder(keras.models.Model):
         source = ops.broadcast_to(
             image_embeddings,
             shape=(
-                tokens.shape[0],
-                image_embeddings.shape[1],
-                image_embeddings.shape[2],
-                image_embeddings.shape[3],
+                ops.shape(tokens)[0],
+                ops.shape(image_embeddings)[1],
+                ops.shape(image_embeddings)[2],
+                ops.shape(image_embeddings)[3],
             ),
         )
         source = source + dense_prompt_embeddings
         positional_source = ops.broadcast_to(
             image_pe,
             shape=(
-                tokens.shape[0],
-                image_embeddings.shape[1],
-                image_embeddings.shape[2],
-                image_embeddings.shape[3],
+                ops.shape(tokens)[0],
+                ops.shape(image_embeddings)[1],
+                ops.shape(image_embeddings)[2],
+                ops.shape(image_embeddings)[3],
             ),
         )
-        B, H, W, C = source.shape
+        shape = ops.shape(source)
+        B, H, W, C = shape[0], shape[1], shape[2], shape[3]
 
         hidden_state, source = self.transformer(
             source, positional_source, tokens
@@ -193,7 +192,8 @@ class SAMMaskDecoder(keras.models.Model):
                 self.output_hypernetworks_mlps[i](mask_tokens_out[:, i, :])
             )
         hyper_in = ops.stack(hyper_in_list, axis=1)
-        B, H, W, C = upscaled_embeddings.shape
+        shape = ops.shape(upscaled_embeddings)
+        B, H, W, C = shape[0], shape[1], shape[2], shape[3]
         upscaled_embeddings = ops.reshape(
             ops.transpose(upscaled_embeddings, axes=(0, 3, 1, 2)),
             (B, C, H * W),
