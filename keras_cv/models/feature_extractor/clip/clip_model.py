@@ -104,13 +104,13 @@ class CLIP(Task):
                 "using pip `pip install -U keras-nlp && pip install -U keras`"
             )
 
-        vision_heads = vision_width // 64
-        image_input = keras.layers.Input(
-            shape=(image_resolution, image_resolution, 3), name="image"
+        vision_heads = self.vision_width // 64
+        self.image_input = keras.layers.Input(shape=(None,), name="image")
+        self.text_input = keras.layers.Input(
+            shape=(None, None, self.context_length), name="text"
         )
-        text_input = keras.layers.Input(shape=(context_length,), name="text")
-        attention_mask_input = keras.layers.Input(
-            shape=(context_length,), name="attention_mask"
+        self.attention_mask_input = keras.layers.Input(
+            shape=(None, None, self.context_length), name="attention_mask"
         )
         self.image_encoder = CLIPImageEncoder(
             input_resolution=image_resolution,
