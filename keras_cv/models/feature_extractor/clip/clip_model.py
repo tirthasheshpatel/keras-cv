@@ -105,14 +105,14 @@ class CLIP(Task):
             )
 
         vision_heads = vision_width // 64
-        self.image_input = keras.layers.Input(
+        image_input = keras.layers.Input(
             shape=(None, image_resolution, image_resolution, 3), name="image"
         )
-        self.text_input = keras.layers.Input(
-            shape=(None, None, context_length), name="text"
+        text_input = keras.layers.Input(
+            shape=(None, context_length), name="text"
         )
-        self.attention_mask_input = keras.layers.Input(
-            shape=(None, None, context_length), name="attention_mask"
+        attention_mask_input = keras.layers.Input(
+            shape=(None, context_length), name="attention_mask"
         )
         self.image_encoder = CLIPImageEncoder(
             input_resolution=image_resolution,
@@ -136,9 +136,9 @@ class CLIP(Task):
         self.logit_scale = keras.Variable(
             ops.ones([]) * ops.log(1 / 0.07), name="logit_scale"
         )
-        self.image_embeddings = self.encode_images(self.image_input)
+        self.image_embeddings = self.encode_images(image_input)
         self.text_embeddings = self.encode_text(
-            self.text_input, attention_mask=self.attention_mask_input
+            text_input, attention_mask=attention_mask_input
         )
         normalize_image_features = ops.sqrt(
             ops.sum(ops.power(self.image_embeddings, 2), keepdims=True)
@@ -163,11 +163,11 @@ class CLIP(Task):
         }
 
         super().__init__(
-            inputs=[
-                self.image_input,
-                self.text_input,
-                self.attention_mask_input,
-            ],
+            inputs={
+                "image_input": image_input,
+                "text_input": text_input,
+                "attention_mask_input": attention_mask_input,
+            },
             ouputs=outputs,
             **kwargs,
         )
