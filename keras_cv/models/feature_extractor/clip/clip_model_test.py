@@ -38,6 +38,7 @@ MODEL_PATH = keras.utils.get_file(
     "https://storage.googleapis.com/keras-cv/models/clip/clip-vit-base-patch32.weights.h5",  # noqa: E501
 )
 
+
 class CLIPTest(TestCase):
     @pytest.mark.large
     def test_clip_model_golden_values(self):

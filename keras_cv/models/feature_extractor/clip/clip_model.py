@@ -103,10 +103,11 @@ class CLIP(Task):
                 "ClipTokenizer requires keras-nlp. Please install "
                 "using pip `pip install -U keras-nlp && pip install -U keras`"
             )
-        
 
         vision_heads = vision_width // 64
-        self.image_input = keras.layers.Input(shape=(None,), name="image")
+        self.image_input = keras.layers.Input(
+            shape=(None, image_resolution, image_resolution, 3), name="image"
+        )
         self.text_input = keras.layers.Input(
             shape=(None, None, context_length), name="text"
         )
