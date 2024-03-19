@@ -12,9 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import tensorflow as tf
+import tree
+
 from keras_cv.api_export import keras_cv_export
+from keras_cv.backend import config
 from keras_cv.backend import keras
 from keras_cv.backend import ops
+from keras_cv.models.feature_extractor.clip.clip_processor_utils import (
+    convert_inputs_to_list_of_tensor_segments,
+)
+from keras_cv.models.feature_extractor.clip.clip_processor_utils import (
+    convert_to_backend_tensor_or_python_list,
+)
 from keras_cv.models.feature_extractor.clip.clip_tokenizer import CLIPTokenizer
 
 try:
@@ -25,7 +35,7 @@ except ImportError:
 
 
 @keras_cv_export("keras_cv.models.feature_extractor.CLIPProcessor")
-class CLIPProcessor:
+class CLIPProcessor(keras.layers.Layer):
     """
     CLIPProcessor is a utility class that provides functionality for processing
     images and texts in the context of the CLIP (Contrastive Language-Image
@@ -50,6 +60,7 @@ class CLIPProcessor:
     """
 
     def __init__(self, input_resolution, vocabulary, merges, **kwargs):
+        super().__init__(**kwargs)
         if keras_nlp is None:
             raise ValueError(
                 "ClipTokenizer requires keras-nlp. Please install "
@@ -62,8 +73,13 @@ class CLIPProcessor:
         self.tokenizer = CLIPTokenizer(
             vocabulary=self.vocabulary,
             merges=self.merges,
-            unsplittable_tokens=["</w>"],
         )
+        self._convert_input_args = False
+        self._allow_non_tensor_positional_args = True
+
+    def build(self, input_shape):
+        # Defer packer creation to `build()` so that we can be sure tokenizer
+        # assets have loaded when restoring a saved model.
         self.packer = StartEndPacker(
             start_value=self.tokenizer.token_to_id("<|startoftext|>"),
             end_value=self.tokenizer.token_to_id("<|endoftext|>"),
@@ -71,6 +87,7 @@ class CLIPProcessor:
             sequence_length=77,
             return_padding_mask=True,
         )
+        self.built = True
 
     def transform_image(self, image_path):
         input_resolution = self.input_resolution
@@ -115,19 +132,51 @@ class CLIPProcessor:
         processed_images = ops.stack(processed_images)
         return processed_images
 
-    def process_texts(self, texts, context_length: int = 77):
-        if isinstance(texts, str):
-            texts = [texts]
+    def _process_texts(self, texts, context_length: int = 77):
+        # Ensure the layer is built
+        if not self.built:
+            self.build(None)
 
-        def pack_tokens(text):
-            return self.packer(
-                self.tokenizer(text),
-                sequence_length=context_length,
-                add_start_value=True,
-                add_end_value=True,
+        texts = convert_inputs_to_list_of_tensor_segments(texts)
+
+        if len(texts) != 1:
+            raise ValueError(
+                "CLIP requires each input feature to contain only "
+                f"one segment, but received {len(texts)}."
             )
 
-        return pack_tokens(texts)
+        token_ids, padding_mask = self.packer(
+            self.tokenizer(texts[0]),
+            sequence_length=context_length,
+            add_start_value=True,
+            add_end_value=True,
+        )
+        return {"token_ids": token_ids, "padding_mask": padding_mask}
+
+    def call(self, texts, context_length: int = 77):
+        return self._process_texts(texts, context_length=context_length)
+
+    def get_build_config(self):
+        return None
+
+    def __call__(self, *args, **kwargs):
+        # Always place on CPU for preprocessing, to avoid expensive back and
+        # forth copies to GPU before the trainable model.
+        with tf.device("cpu"):
+            outputs = super().__call__(*args, **kwargs)
+
+            # Jax and Torch lack native string and ragged types.
+            # If we are running on those backends and not running with tf.data
+            # (we are outside a tf.function), we covert all ragged and string
+            # tensor to pythonic types.
+            is_tf_backend = config.backend() == "tensorflow"
+            is_in_tf_graph = not tf.executing_eagerly()
+            if not is_tf_backend and not is_in_tf_graph:
+                outputs = tree.map_structure(
+                    convert_to_backend_tensor_or_python_list, outputs
+                )
+
+        return outputs
 
     def get_config(self):
         config = super().get_config()

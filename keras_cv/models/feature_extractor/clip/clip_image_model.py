@@ -67,6 +67,13 @@ class CLIPPatchingAndEmbedding(keras.layers.Layer):
             name="patch_embed.positional_embedding",
         )
 
+    def compute_output_shape(self, input_shape):
+        return [
+            None,
+            (self.input_resolution // self.patch_size) ** 2 + 1,
+            self.width,
+        ]
+
     def call(self, x):
         batch_size = ops.shape(x)[0]
         patch_embeddings = self.conv1(x)  # shape = [*, grid, grid, channel]
@@ -143,12 +150,15 @@ class CLIPImageEncoder(keras.Model):
         )
 
     def build(self, input_shape):
-        super().build(input_shape)
         self.embeddings.build(input_shape)
         self.pre_norm.build([None, None, self.width])
         self.encoder.build(None)
         self.post_norm.build([None, self.width])
         self.image_projector.build([None, None, self.width])
+        self.built = True
+
+    def compute_output_shape(self, input_shape):
+        return [*input_shape[:2], self.output_dim]
 
     def call(self, image):
         x = self.embeddings(image)

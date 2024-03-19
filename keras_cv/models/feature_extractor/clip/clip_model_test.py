@@ -33,25 +33,20 @@ MERGE_PATH = keras.utils.get_file(
     None,
     "https://storage.googleapis.com/keras-cv/models/clip/merges.txt",
 )
-MODEL_PATH = keras.utils.get_file(
-    None,
-    "https://storage.googleapis.com/keras-cv/models/clip/clip-vit-base-patch32.weights.h5",  # noqa: E501
-)
 
 
 class CLIPTest(TestCase):
     @pytest.mark.large
     def test_clip_model_golden_values(self):
-        model = CLIP()
-        model.load_weights(MODEL_PATH)
+        model = CLIP.from_preset("clip-vit-base-patch32")
         processed_image = np.ones(shape=[1, 224, 224, 3])
-        processed_text = np.ones(shape=[3, 77])
-        attention_mask = np.ones(shape=[3, 77])
+        processed_text = np.ones(shape=[1, 77])
+        attention_mask = np.ones(shape=[1, 77])
         image_logits, text_logits = model(
             {
-                "image": processed_image,
-                "text": processed_text,
-                "attention_mask": attention_mask,
+                "images": processed_image,
+                "token_ids": processed_text,
+                "padding_mask": attention_mask,
             }
         )
         self.assertAllClose(image_logits, [[1.896712, 1.896712, 1.896712]])
@@ -61,49 +56,47 @@ class CLIPTest(TestCase):
 
     def test_clip_preprocessor(self):
         processor = CLIPProcessor(224, VOCAB_PATH, MERGE_PATH)
-        processed_text, attention_mask = processor.process_texts(
-            ["mountains", "cat on tortoise"]
+        tokens = processor(["mountains", "cat on tortoise"])
+        self.assertAllClose(
+            tokens["token_ids"][:, :3],
+            [[49406, 5873, 49407], [49406, 2368, 525]],
         )
         self.assertAllClose(
-            processed_text[:, :3], [[49406, 5873, 49407], [49406, 2368, 525]]
-        )
-        self.assertAllClose(
-            attention_mask[0, :5], [True, True, True, False, False]
+            tokens["padding_mask"][0, :5], [True, True, True, False, False]
         )
 
     def test_clip_preprocessor_tf_data(self):
         processor = CLIPProcessor(224, VOCAB_PATH, MERGE_PATH)
         text_input = ["a bus", "a dog", "a cat"]
         dataset = tf_data.Dataset.from_tensor_slices(text_input)
-        dataset.map(processor.process_texts)
+        dataset.map(processor)
 
     @pytest.mark.large
     def test_presets(self):
         # self.skipTest("TODO: Enable after Kaggle model is public")
         model = CLIP.from_preset("clip-vit-base-patch16")
         processed_image = np.ones(shape=[1, 224, 224, 3])
-        processed_text = np.ones(shape=[3, 77])
-        attention_mask = np.ones(shape=[3, 77])
+        processed_text = np.ones(shape=[1, 77])
+        attention_mask = np.ones(shape=[1, 77])
         image_logits, text_logits = model(
             {
-                "image": processed_image,
-                "text": processed_text,
-                "attention_mask": attention_mask,
+                "images": processed_image,
+                "token_ids": processed_text,
+                "padding_mask": attention_mask,
             }
         )
 
     @pytest.mark.large
     def test_image_encoder_golden_values(self):
-        model = CLIP()
-        model.load_weights(MODEL_PATH)
+        model = CLIP.from_preset("clip-vit-base-patch32")
         processed_image = np.ones(shape=[1, 224, 224, 3])
-        processed_text = np.ones(shape=[3, 77])
-        attention_mask = np.ones(shape=[3, 77])
+        processed_text = np.ones(shape=[1, 77])
+        attention_mask = np.ones(shape=[1, 77])
         model(
             {
-                "image": processed_image,
-                "text": processed_text,
-                "attention_mask": attention_mask,
+                "images": processed_image,
+                "token_ids": processed_text,
+                "padding_mask": attention_mask,
             }
         )
         self.assertAllClose(
@@ -113,16 +106,15 @@ class CLIPTest(TestCase):
 
     @pytest.mark.large
     def test_text_encoder_golden_values(self):
-        model = CLIP()
-        model.load_weights(MODEL_PATH)
+        model = CLIP.from_preset("clip-vit-base-patch32")
         processed_image = np.ones(shape=[1, 224, 224, 3])
-        processed_text = np.ones(shape=[3, 77])
-        attention_mask = np.ones(shape=[3, 77])
+        processed_text = np.ones(shape=[1, 77])
+        attention_mask = np.ones(shape=[1, 77])
         model(
             {
-                "image": processed_image,
-                "text": processed_text,
-                "attention_mask": attention_mask,
+                "images": processed_image,
+                "token_ids": processed_text,
+                "padding_mask": attention_mask,
             }
         )
         self.assertAllClose(
@@ -134,13 +126,13 @@ class CLIPTest(TestCase):
     def test_saved_model(self):
         model = CLIP()
         processed_image = np.ones(shape=[1, 224, 224, 3])
-        processed_text = np.ones(shape=[3, 77])
-        attention_mask = np.ones(shape=[3, 77])
+        processed_text = np.ones(shape=[1, 77])
+        attention_mask = np.ones(shape=[1, 77])
         model_output, _ = model(
             {
-                "image": processed_image,
-                "text": processed_text,
-                "attention_mask": attention_mask,
+                "images": processed_image,
+                "token_ids": processed_text,
+                "padding_mask": attention_mask,
             }
         )
         save_path = os.path.join(self.get_temp_dir(), "model.keras")
@@ -155,9 +147,9 @@ class CLIPTest(TestCase):
         # Check that output matches.
         restored_output, _ = restored_model(
             {
-                "image": processed_image,
-                "text": processed_text,
-                "attention_mask": attention_mask,
+                "images": processed_image,
+                "token_ids": processed_text,
+                "padding_mask": attention_mask,
             }
         )
         self.assertAllClose(model_output, restored_output)

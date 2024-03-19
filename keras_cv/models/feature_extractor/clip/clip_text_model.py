@@ -16,6 +16,8 @@ from keras_cv.backend import keras
 from keras_cv.backend import ops
 from keras_cv.models.feature_extractor.clip.clip_encoder import CLIPEncoder
 
+keras.config.disable_traceback_filtering()
+
 
 @keras_cv_export("keras_cv.models.feature_extractor.CLIPTextEncoder")
 class CLIPTextEncoder(keras.Model):
@@ -62,12 +64,15 @@ class CLIPTextEncoder(keras.Model):
         )
 
     def build(self, input_shape):
-        super().build(input_shape)
         self.token_embedding.build(input_shape)
         self.positional_embedding.build([1, self.context_length])
         self.encoder.build(None)
         self.ln_final.build([None, None, self.transformer_width])
         self.text_projector.build([None, None, self.transformer_width])
+        self.built = True
+
+    def compute_output_shape(self, input_shape):
+        return [*input_shape[:1], self.embed_dim]
 
     def call(self, inputs, attention_mask=None):
         token_embedding = self.token_embedding(inputs)
@@ -76,7 +81,7 @@ class CLIPTextEncoder(keras.Model):
         )
         position_embedding = self.positional_embedding(position_ids)
         position_embedding = ops.tile(
-            position_embedding, repeats=(inputs.shape[0], 1, 1)
+            position_embedding, repeats=(ops.shape(inputs)[0], 1, 1)
         )
         causal_attention_mask = ops.ones(
             (self.context_length, self.context_length)
