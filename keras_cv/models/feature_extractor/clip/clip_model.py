@@ -106,13 +106,13 @@ class CLIP(Task):
 
         vision_heads = vision_width // 64
         image_input = keras.layers.Input(
-            shape=(None, image_resolution, image_resolution, 3), name="image"
+            shape=(image_resolution, image_resolution, 3), name="image"
         )
         text_input = keras.layers.Input(
-            shape=(None, context_length), name="text"
+            shape=(context_length,), name="text"
         )
         attention_mask_input = keras.layers.Input(
-            shape=(None, context_length), name="attention_mask"
+            shape=(context_length,), name="attention_mask"
         )
         self.image_encoder = CLIPImageEncoder(
             input_resolution=image_resolution,
