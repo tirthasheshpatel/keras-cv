@@ -108,9 +108,7 @@ class CLIP(Task):
         image_input = keras.layers.Input(
             shape=(image_resolution, image_resolution, 3), name="image"
         )
-        text_input = keras.layers.Input(
-            shape=(context_length,), name="text"
-        )
+        text_input = keras.layers.Input(shape=(context_length,), name="text")
         attention_mask_input = keras.layers.Input(
             shape=(context_length,), name="attention_mask"
         )
@@ -181,22 +179,6 @@ class CLIP(Task):
         self.transformer_width = transformer_width
         self.transformer_heads = transformer_heads
         self.transformer_layers = transformer_layers
-
-    def build(self, input_shape):
-        super().build(input_shape)
-        self.text_encoder.build([None, self.context_length])
-        self.image_encoder.build(
-            [None, self.image_resolution, self.image_resolution, 3]
-        )
-
-    def compute_output_shape(self, input_shape):
-        return {
-            "logits_per_image": [
-                None,
-                self.text_input.shape[1],
-            ],
-            "logits_per_text": [self.text_input.shape[1], None],
-        }
 
     def encode_images(self, image):
         return self.image_encoder(image)
