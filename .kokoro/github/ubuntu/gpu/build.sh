@@ -17,14 +17,12 @@ nvidia-smi
 nvcc --version
 
 cd "src/github/keras-cv"
-pip install -U pip setuptools
-# psutil is used by background log reader
-pip install -U psutil
+pip install -U pip setuptools psutil
 
 if [ "${KERAS2:-0}" == "1" ]
 then
    echo "Keras2 detected."
-   pip install -r requirements-common.txt --progress-bar off
+   pip install -r requirements-common.txt --progress-bar off --timeout 1000
    pip install tensorflow~=2.14
    pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.1.0+cpu
    pip install torchvision~=0.16.0
@@ -35,20 +33,23 @@ then
 elif [ "$KERAS_BACKEND" == "tensorflow" ]
 then
    echo "TensorFlow backend detected."
-   pip install -r requirements-tensorflow-cuda.txt --progress-bar off
-   pip install keras-nlp-nightly
+   pip install -r requirements-tensorflow-cuda.txt --progress-bar off --timeout 1000
+   pip install keras-nlp-nightly --no-deps
+   pip install tensorflow-text~=2.16.0
 
 elif [ "$KERAS_BACKEND" == "jax" ]
 then
    echo "JAX backend detected."
-   pip install -r requirements-jax-cuda.txt --progress-bar off
-   pip install keras-nlp-nightly
+   pip install -r requirements-jax-cuda.txt --progress-bar off --timeout 1000
+   pip install keras-nlp-nightly --no-deps
+   pip install tensorflow-text~=2.16.0
 
 elif [ "$KERAS_BACKEND" == "torch" ]
 then
    echo "PyTorch backend detected."
-   pip install -r requirements-torch-cuda.txt --progress-bar off
-   pip install keras-nlp-nightly
+   pip install -r requirements-torch-cuda.txt --progress-bar off --timeout 1000
+   pip install keras-nlp-nightly --no-deps
+   pip install tensorflow-text~=2.16.0
 fi
 
 pip install --no-deps -e "." --progress-bar off
