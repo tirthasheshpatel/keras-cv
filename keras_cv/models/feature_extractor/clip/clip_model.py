@@ -65,8 +65,8 @@ class CLIPHead(keras.layers.Layer):
             )
             * logit_scale
         )
-        test_logits = ops.transpose(image_logits)
-        return image_logits, test_logits
+        text_logits = ops.transpose(image_logits)
+        return image_logits, text_logits
 
 
 @keras_cv_export(["keras_cv.models.CLIP"])
@@ -208,18 +208,9 @@ class CLIP(Task):
         self.transformer_width = transformer_width
         self.transformer_heads = transformer_heads
         self.transformer_layers = transformer_layers
-<<<<<<< HEAD
         self.image_encoder = image_encoder
         self.text_encoder = text_encoder
         self.clip_head = clip_head
-=======
-
-    def encode_images(self, image):
-        return self.image_encoder(image)
-
-    def encode_text(self, text, attention_mask=None):
-        return self.text_encoder(text, attention_mask=attention_mask)
->>>>>>> 1e7ce5f (remove build and compute output shape)
 
     @classproperty
     def presets(cls):

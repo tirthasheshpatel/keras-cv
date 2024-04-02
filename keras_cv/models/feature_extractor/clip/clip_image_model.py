@@ -19,7 +19,6 @@ from keras_cv.models.feature_extractor.clip.clip_encoder import CLIPEncoder
 from keras_cv.models.feature_extractor.clip.clip_encoder import get_initializer
 
 
-@keras_cv_export("keras_cv.models.feature_extractor.CLIPPatchingAndEmbedding")
 class CLIPPatchingAndEmbedding(keras.layers.Layer):
     def __init__(
         self, width, patch_size, input_resolution, output_dim, **kwargs
@@ -154,11 +153,11 @@ class CLIPImageEncoder(keras.Model):
         self.pre_norm.build([None, None, self.width])
         self.encoder.build(None)
         self.post_norm.build([None, self.width])
-        self.image_projector.build([None, None, self.width])
+        self.image_projector.build([None, self.width])
         self.built = True
 
     def compute_output_shape(self, input_shape):
-        return [*input_shape[:2], self.output_dim]
+        return [input_shape[0], self.output_dim]
 
     def call(self, image):
         x = self.embeddings(image)
